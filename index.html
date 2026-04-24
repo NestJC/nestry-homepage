@@ -81,92 +81,93 @@
     </div>
 
 <script>
-    const canvas = document.getElementById('particle-canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const wrapper = document.getElementById('ui-wrapper');
-    const textElements = document.querySelectorAll('.interactive-text');
+   const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const textElements = document.querySelectorAll('.interactive-text');
 
-    let particles = [];
-    const mouse = { x: null, y: null, radius: 80 };
+let particles = [];
+const mouse = { x: null, y: null, radius: 50 }; // 반경을 좁혀서 가독성 보호
 
-    window.addEventListener('mousemove', (e) => {
-        mouse.x = e.x;
-        mouse.y = e.y;
-    });
+window.addEventListener('mousemove', (e) => {
+    mouse.x = e.x;
+    mouse.y = e.y;
+});
 
-    class Particle {
-        constructor(x, y, color) {
-            this.x = Math.random() * canvas.width;
-            this.y = Math.random() * canvas.height;
-            this.baseX = x;
-            this.baseY = y;
-            this.color = color;
-            this.size = 1.5;
-            this.density = (Math.random() * 30) + 10;
-        }
-
-        draw() {
-            ctx.fillStyle = this.color;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        update() {
-            let dx = mouse.x - this.x;
-            let dy = mouse.y - this.y;
-            let distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < mouse.radius) {
-                let force = (mouse.radius - distance) / mouse.radius;
-                let directionX = (dx / distance) * force * this.density;
-                let directionY = (dy / distance) * force * this.density;
-                this.x -= directionX;
-                this.y -= directionY;
-            } else {
-                this.x += (this.baseX - this.x) * 0.1;
-                this.y += (this.baseY - this.y) * 0.1;
-            }
-        }
+class Particle {
+    constructor(x, y, color) {
+        this.x = x; // 처음부터 제자리에 배치
+        this.y = y;
+        this.baseX = x;
+        this.baseY = y;
+        this.color = color;
+        this.size = 1.2; // 입자 크기를 살짝 줄여 정교하게
+        this.friction = 0.9; // 마찰력 추가로 부드러운 움직임
+        this.ease = 0.15; // 돌아오는 속도 (높을수록 빠름)
     }
 
-    function init() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        particles = [];
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
-        textElements.forEach(el => {
-            const rect = el.getBoundingClientRect();
-            const style = window.getComputedStyle(el);
-            
-            // 임시 캔버스에 텍스트 그려서 픽셀 추출
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = rect.width;
-            tempCanvas.height = rect.height;
-            
-            tempCtx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-            tempCtx.fillStyle = 'black';
-            tempCtx.textBaseline = 'top';
-            
-            // 줄바꿈 처리
-            const lines = el.innerHTML.split('<br>');
-            lines.forEach((line, i) => {
-                const cleanText = line.replace(/<[^>]*>/g, "").trim();
-                tempCtx.fillText(cleanText, 0, i * parseInt(style.lineHeight));
-            });
+    update() {
+        let dx = mouse.x - this.x;
+        let dy = mouse.y - this.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < mouse.radius) {
+            let force = (mouse.radius - distance) / mouse.radius;
+            // 밀어내는 힘을 약하게 조절하여 글씨 형태 유지
+            let directionX = (dx / distance) * force * 15; 
+            let directionY = (dy / distance) * force * 15;
+            this.x -= directionX;
+            this.y -= directionY;
+        } else {
+            // 원래 위치로 빠르게 복귀
+            this.x += (this.baseX - this.x) * this.ease;
+            this.y += (this.baseY - this.y) * this.ease;
+        }
+    }
+}
 
-            const pixelData = tempCtx.getImageData(0, 0, rect.width, rect.height).data;
-            
-            for (let y = 0; y < rect.height; y += 3) {
-                for (let x = 0; x < rect.width; x += 3) {
-                    if (pixelData[(y * rect.width + x) * 4 + 3] > 128) {
-                        particles.push(new Particle(rect.left + x, rect.top + y, '#1d1d1f'));
-                    }
+function init() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    particles = [];
+
+    textElements.forEach(el => {
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = rect.width;
+        tempCanvas.height = rect.height;
+        
+        tempCtx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        tempCtx.fillStyle = 'black';
+        tempCtx.textBaseline = 'top';
+        
+        const lines = el.innerHTML.split('<br>');
+        lines.forEach((line, i) => {
+            const cleanText = line.replace(/<[^>]*>/g, "").trim();
+            // 행간(Line Height) 계산 반영
+            tempCtx.fillText(cleanText, 0, i * parseInt(style.lineHeight || 38));
+        });
+
+        const pixelData = tempCtx.getImageData(0, 0, rect.width, rect.height).data;
+        
+        // 간격을 1.8로 좁혀 해상도 2배 향상
+        for (let y = 0; y < rect.height; y += 1.8) {
+            for (let x = 0; x < rect.width; x += 1.8) {
+                if (pixelData[(y * rect.width + x) * 4 + 3] > 128) {
+                    particles.push(new Particle(rect.left + x, rect.top + y, '#1d1d1f'));
                 }
             }
-        });
-    }
+        }
+    });
+}
 
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
