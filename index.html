@@ -19,32 +19,35 @@
             display: flex; height: 100vh;
             align-items: center; justify-content: center;
             -webkit-font-smoothing: antialiased;
-            overflow: hidden;
+            overflow: hidden; /* 글자가 튀어나갈 경우 방지 */
         }
 
         .wrapper {
-            max-width: 600px; width: 90%;
-            padding: 40px; text-align: left;
+            max-width: 500px; width: 90%;
+            padding: 40px;
+            animation: fadeIn 1.2s ease-out;
         }
 
         .brand {
             font-size: 14px; font-weight: 600;
             letter-spacing: 0.1em; text-transform: uppercase;
-            margin-bottom: 24px;
+            margin-bottom: 24px; color: var(--text-main);
         }
 
         .intro {
-            font-size: 32px; font-weight: 700;
-            line-height: 1.4; margin-bottom: 40px;
+            font-size: 24px; font-weight: 400;
+            line-height: 1.6; margin-bottom: 40px;
             word-break: keep-all;
         }
 
-        /* 개별 글자 스타일 */
+        .intro span.sub-text { color: var(--text-sub); }
+
+        /* 글자 개별 스타일 */
         .char {
-            display: inline-block; /* 위치 이동을 위해 필수 */
-            transition: transform 0.1s ease-out; /* 부드러운 복귀 */
-            white-space: pre; /* 공백 유지 */
+            display: inline-block;
+            transition: transform 0.2s ease-out; /* 돌아올 때 부드럽게 */
             will-change: transform;
+            white-space: pre; /* 공백 유지 */
         }
 
         .contact-link {
@@ -53,45 +56,70 @@
             padding-bottom: 4px; transition: all 0.3s ease;
         }
 
-        .contact-link:hover { color: var(--text-sub); border-bottom-color: var(--text-sub); }
+        .contact-link:hover {
+            color: var(--text-sub); border-bottom-color: var(--text-sub);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
 
     <div class="wrapper">
-        <div class="brand scatter">Nestry</div>
+        <div class="brand interactive">Nestry</div>
         
-        <div class="intro scatter">
-            Nest의 작업 공간입니다.<br>
-            차분히 프로젝트를 준비하고 있습니다.
+        <div class="intro interactive">
+            <strong>Nest</strong>의 작업 공간입니다.<br>
+            <span class="sub-text">작고 유용한 도구와 게임을 고민하며,<br>
+            차분히 프로젝트를 준비하고 있습니다.</span>
         </div>
 
-        <a href="mailto:nest@nestry.co.kr" class="contact-link">nest@nestry.co.kr</a>
+        <a href="mailto:admin@nestry.co.kr" class="contact-link">admin@nestry.co.kr</a>
     </div>
 
 <script>
-    const scatterElements = document.querySelectorAll('.scatter');
-    const chars = [];
+    const interactiveElements = document.querySelectorAll('.interactive');
+    const allChars = [];
 
-    // 1. 텍스트를 한 글자씩 쪼개기
-    scatterElements.forEach(el => {
-        const text = el.innerText;
-        el.innerHTML = '';
-        [...text].forEach(char => {
-            const span = document.createElement('span');
-            span.innerText = char;
-            span.classList.add('char');
-            el.appendChild(span);
-            chars.push(span);
+    // 1. 텍스트를 글자 단위로 쪼개는 함수 (기존 HTML 구조 유지)
+    function splitText(element) {
+        const nodes = Array.from(element.childNodes);
+        element.innerHTML = ''; // 초기화
+
+        nodes.forEach(node => {
+            if (node.nodeType === 3) { // 텍스트 노드인 경우
+                const chars = [...node.textContent];
+                chars.forEach(char => {
+                    const span = document.createElement('span');
+                    span.innerText = char;
+                    span.classList.add('char');
+                    element.appendChild(span);
+                    allChars.push(span);
+                });
+            } else if (node.nodeName === 'BR') {
+                element.appendChild(document.createElement('br'));
+            } else { // strong이나 span 등 다른 태그인 경우
+                const wrapper = node.cloneNode(false); // 태그 자체만 복제
+                element.appendChild(wrapper);
+                splitText(node).forEach(childSpan => wrapper.appendChild(childSpan));
+            }
         });
-    });
+        return allChars;
+    }
 
-    // 2. 마우스 위치 추적 및 글자 이동
+    // 초기 실행
+    interactiveElements.forEach(el => splitText(el));
+
+    // 2. 마우스 움직임 감지 및 글자 이동
     window.addEventListener('mousemove', (e) => {
         const mouseX = e.clientX;
         const mouseY = e.clientY;
+        const radius = 80; // 마우스 영향 반경
 
-        chars.forEach(char => {
+        allChars.forEach(char => {
             const rect = char.getBoundingClientRect();
             const charX = rect.left + rect.width / 2;
             const charY = rect.top + rect.height / 2;
@@ -100,11 +128,10 @@
             const dy = mouseY - charY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            const radius = 100; // 영향 반경
             if (distance < radius) {
                 const force = (radius - distance) / radius;
-                const moveX = (dx / distance) * force * 20 * -1; // 마우스 반대 방향으로 이동
-                const moveY = (dy / distance) * force * 20 * -1;
+                const moveX = (dx / distance) * force * 15 * -1; // 반대 방향으로 밀어냄
+                const moveY = (dy / distance) * force * 15 * -1;
                 char.style.transform = `translate(${moveX}px, ${moveY}px)`;
             } else {
                 char.style.transform = `translate(0, 0)`;
@@ -112,7 +139,7 @@
         });
     });
 
-    // 모바일 터치 대응 (선택 사항)
+    // 터치 대응
     window.addEventListener('touchmove', (e) => {
         const touch = e.touches[0];
         const mouseEvent = new MouseEvent("mousemove", {
