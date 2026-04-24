@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nestry</title>
     <style>
+        /* 1. 사용자 제공 UI 스타일 (절대 보존) */
         :root {
             --bg-color: #ffffff;
             --text-main: #1d1d1f;
@@ -19,7 +20,7 @@
             display: flex; height: 100vh;
             align-items: center; justify-content: center;
             -webkit-font-smoothing: antialiased;
-            overflow: hidden; /* 글자가 튀어나갈 경우 방지 */
+            overflow: hidden;
         }
 
         .wrapper {
@@ -40,15 +41,7 @@
             word-break: keep-all;
         }
 
-        .intro span.sub-text { color: var(--text-sub); }
-
-        /* 글자 개별 스타일 */
-        .char {
-            display: inline-block;
-            transition: transform 0.2s ease-out; /* 돌아올 때 부드럽게 */
-            will-change: transform;
-            white-space: pre; /* 공백 유지 */
-        }
+        .intro span { color: var(--text-sub); }
 
         .contact-link {
             font-size: 15px; color: var(--text-main);
@@ -56,24 +49,31 @@
             padding-bottom: 4px; transition: all 0.3s ease;
         }
 
-        .contact-link:hover {
-            color: var(--text-sub); border-bottom-color: var(--text-sub);
-        }
+        .contact-link:hover { color: var(--text-sub); border-bottom-color: var(--text-sub); }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 2. 인터랙티브 효과를 위한 추가 스타일 (UI 변질 없음) */
+        .char {
+            display: inline-block;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 자석 같은 복귀 효과 */
+            will-change: transform;
+            white-space: pre;
+            pointer-events: none; /* 텍스트 선택 방해 금지 */
         }
     </style>
 </head>
 <body>
 
     <div class="wrapper">
-        <div class="brand interactive">Nestry</div>
+        <div class="brand scatter">Nestry</div>
         
-        <div class="intro interactive">
+        <div class="intro scatter">
             <strong>Nest</strong>의 작업 공간입니다.<br>
-            <span class="sub-text">작고 유용한 도구와 게임을 고민하며,<br>
+            <span>작고 유용한 도구와 게임을 고민하며,<br>
             차분히 프로젝트를 준비하고 있습니다.</span>
         </div>
 
@@ -81,18 +81,18 @@
     </div>
 
 <script>
-    const interactiveElements = document.querySelectorAll('.interactive');
+    const scatterElements = document.querySelectorAll('.scatter');
     const allChars = [];
 
-    // 1. 텍스트를 글자 단위로 쪼개는 함수 (기존 HTML 구조 유지)
-    function splitText(element) {
+    // [중요] 기존 HTML 구조(strong, span 등)를 유지하며 글자만 쪼개는 로직
+    function injectSpans(element) {
         const nodes = Array.from(element.childNodes);
-        element.innerHTML = ''; // 초기화
+        element.innerHTML = ''; 
 
         nodes.forEach(node => {
-            if (node.nodeType === 3) { // 텍스트 노드인 경우
-                const chars = [...node.textContent];
-                chars.forEach(char => {
+            if (node.nodeType === 3) { // 텍스트 노드
+                const text = node.textContent;
+                [...text].forEach(char => {
                     const span = document.createElement('span');
                     span.innerText = char;
                     span.classList.add('char');
@@ -101,23 +101,25 @@
                 });
             } else if (node.nodeName === 'BR') {
                 element.appendChild(document.createElement('br'));
-            } else { // strong이나 span 등 다른 태그인 경우
-                const wrapper = node.cloneNode(false); // 태그 자체만 복제
-                element.appendChild(wrapper);
-                splitText(node).forEach(childSpan => wrapper.appendChild(childSpan));
+            } else { // strong, span 등 태그 노드
+                const clone = node.cloneNode(false); // 태그 껍데기만 복제
+                element.appendChild(clone);
+                // 재귀적으로 내부 텍스트 쪼개기
+                const internalNodes = Array.from(node.childNodes);
+                node.innerHTML = ''; 
+                injectSpans(clone, node); 
             }
         });
-        return allChars;
     }
 
-    // 초기 실행
-    interactiveElements.forEach(el => splitText(el));
+    // 텍스트 분해 실행
+    scatterElements.forEach(el => injectSpans(el));
 
-    // 2. 마우스 움직임 감지 및 글자 이동
+    // 마우스 반응 로직
     window.addEventListener('mousemove', (e) => {
         const mouseX = e.clientX;
         const mouseY = e.clientY;
-        const radius = 80; // 마우스 영향 반경
+        const radius = 90; // 효과 반경
 
         allChars.forEach(char => {
             const rect = char.getBoundingClientRect();
@@ -130,25 +132,14 @@
 
             if (distance < radius) {
                 const force = (radius - distance) / radius;
-                const moveX = (dx / distance) * force * 15 * -1; // 반대 방향으로 밀어냄
-                const moveY = (dy / distance) * force * 15 * -1;
+                const moveX = (dx / distance) * force * 18 * -1;
+                const moveY = (dy / distance) * force * 18 * -1;
                 char.style.transform = `translate(${moveX}px, ${moveY}px)`;
             } else {
                 char.style.transform = `translate(0, 0)`;
             }
         });
     });
-
-    // 터치 대응
-    window.addEventListener('touchmove', (e) => {
-        const touch = e.touches[0];
-        const mouseEvent = new MouseEvent("mousemove", {
-            clientX: touch.clientX,
-            clientY: touch.clientY
-        });
-        window.dispatchEvent(mouseEvent);
-    }, { passive: false });
 </script>
-
 </body>
 </html>
