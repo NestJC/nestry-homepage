@@ -19,166 +19,146 @@
             display: flex; height: 100vh;
             align-items: center; justify-content: center;
             -webkit-font-smoothing: antialiased;
-            overflow: hidden;
+            overflow: hidden; /* 스크롤 방지 */
+        }
+
+        /* 캔버스를 배경처럼 배치 */
+        #particle-canvas {
+            position: absolute; top: 0; left: 0;
+            z-index: 1; pointer-events: none;
         }
 
         .wrapper {
             max-width: 600px; width: 90%;
             padding: 40px; position: relative;
-            z-index: 2;
-        }
-
-        /* 캔버스를 텍스트 위치에 정확히 겹치게 설정 */
-        #particle-canvas {
-            position: absolute; top: 0; left: 0;
-            pointer-events: none; /* 마우스 이벤트는 감지만 하고 클릭은 통과 */
-        }
-
-        /* 실제 텍스트는 입자가 보일 때까지 투명하게 유지 */
-        .interactive-text {
-            opacity: 0; /* 입자로 대체되므로 실제 글씨는 숨김 */
-            user-select: none;
+            z-index: 2; /* UI 요소는 캔버스 위에 배치 */
+            pointer-events: none; /* 텍스트는 마우스 감지용으로만 사용 */
         }
 
         .brand {
             font-size: 14px; font-weight: 600;
             letter-spacing: 0.1em; text-transform: uppercase;
-            margin-bottom: 24px;
+            margin-bottom: 24px; color: var(--text-main);
+            opacity: 0; /* 입자로 대체됨 */
         }
 
         .intro {
-            font-size: 24px; font-weight: 400;
-            line-height: 1.6; margin-bottom: 40px;
-            word-break: keep-all;
+            font-size: 32px; /* 가독성을 위해 살짝 키움 */
+            font-weight: 700; line-height: 1.4;
+            margin-bottom: 40px; word-break: keep-all;
+            color: var(--text-main);
+            opacity: 0; /* 입자로 대체됨 */
         }
 
         .contact-link {
             font-size: 15px; color: var(--text-main);
             text-decoration: none; border-bottom: 1px solid #d2d2d7;
             padding-bottom: 4px; transition: all 0.3s ease;
-            position: relative; z-index: 10; /* 링크는 클릭 가능해야 함 */
+            pointer-events: auto; /* 링크는 클릭 가능해야 함 */
+            opacity: 1 !important; /* 링크는 입자로 만들지 않음 */
         }
 
-        .contact-link:hover {
-            color: var(--text-sub); border-bottom-color: var(--text-sub);
-        }
+        .contact-link:hover { color: var(--text-sub); border-bottom-color: var(--text-sub); }
     </style>
 </head>
 <body>
 
     <canvas id="particle-canvas"></canvas>
 
-    <div class="wrapper" id="ui-wrapper">
+    <div class="wrapper">
         <div class="brand interactive-text">Nestry</div>
         
         <div class="intro interactive-text">
-            <strong>Nest</strong>의 작업 공간입니다.<br>
-            작고 유용한 도구와 게임을 고민하며,<br>
+            Nest의 작업 공간입니다.<br>
             차분히 프로젝트를 준비하고 있습니다.
         </div>
 
-        <a href="mailto:admin@nestry.co.kr" class="contact-link">admin@nestry.co.kr</a>
+        <a href="mailto:nest@nestry.co.kr" class="contact-link">nest@nestry.co.kr</a>
     </div>
 
 <script>
-   const canvas = document.getElementById('particle-canvas');
-const ctx = canvas.getContext('2d', { willReadFrequently: true });
-const textElements = document.querySelectorAll('.interactive-text');
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const textElements = document.querySelectorAll('.interactive-text');
+    
+    let particles = [];
+    const mouse = { x: -100, y: -100, radius: 60 }; // 마우스 반경 좁게 조정
 
-let particles = [];
-const mouse = { x: null, y: null, radius: 50 }; // 반경을 좁혀서 가독성 보호
+    window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
 
-window.addEventListener('mousemove', (e) => {
-    mouse.x = e.x;
-    mouse.y = e.y;
-});
-
-class Particle {
-    constructor(x, y, color) {
-        this.x = x; // 처음부터 제자리에 배치
-        this.y = y;
-        this.baseX = x;
-        this.baseY = y;
-        this.color = color;
-        this.size = 1.2; // 입자 크기를 살짝 줄여 정교하게
-        this.friction = 0.9; // 마찰력 추가로 부드러운 움직임
-        this.ease = 0.15; // 돌아오는 속도 (높을수록 빠름)
-    }
-
-    draw() {
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    update() {
-        let dx = mouse.x - this.x;
-        let dy = mouse.y - this.y;
-        let distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < mouse.radius) {
-            let force = (mouse.radius - distance) / mouse.radius;
-            // 밀어내는 힘을 약하게 조절하여 글씨 형태 유지
-            let directionX = (dx / distance) * force * 15; 
-            let directionY = (dy / distance) * force * 15;
-            this.x -= directionX;
-            this.y -= directionY;
-        } else {
-            // 원래 위치로 빠르게 복귀
-            this.x += (this.baseX - this.x) * this.ease;
-            this.y += (this.baseY - this.y) * this.ease;
+    class Particle {
+        constructor(x, y, color, size) {
+            this.x = x; this.y = y;
+            this.baseX = x; this.baseY = y;
+            this.color = color;
+            this.size = size;
+            this.density = (Math.random() * 20) + 5;
         }
-    }
-}
-
-function init() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    particles = [];
-
-    textElements.forEach(el => {
-        const rect = el.getBoundingClientRect();
-        const style = window.getComputedStyle(el);
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCanvas.width = rect.width;
-        tempCanvas.height = rect.height;
-        
-        tempCtx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-        tempCtx.fillStyle = 'black';
-        tempCtx.textBaseline = 'top';
-        
-        const lines = el.innerHTML.split('<br>');
-        lines.forEach((line, i) => {
-            const cleanText = line.replace(/<[^>]*>/g, "").trim();
-            // 행간(Line Height) 계산 반영
-            tempCtx.fillText(cleanText, 0, i * parseInt(style.lineHeight || 38));
-        });
-
-        const pixelData = tempCtx.getImageData(0, 0, rect.width, rect.height).data;
-        
-        // 간격을 1.8로 좁혀 해상도 2배 향상
-        for (let y = 0; y < rect.height; y += 1.8) {
-            for (let x = 0; x < rect.width; x += 1.8) {
-                if (pixelData[(y * rect.width + x) * 4 + 3] > 128) {
-                    particles.push(new Particle(rect.left + x, rect.top + y, '#1d1d1f'));
-                }
+        draw() {
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        update() {
+            let dx = mouse.x - this.x;
+            let dy = mouse.y - this.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < mouse.radius) {
+                let force = (mouse.radius - distance) / mouse.radius;
+                this.x -= (dx / distance) * force * this.density;
+                this.y -= (dy / distance) * force * this.density;
+            } else {
+                this.x += (this.baseX - this.x) * 0.15; // 빠른 복구
+                this.y += (this.baseY - this.y) * 0.15;
             }
         }
-    });
-}
+    }
+
+    function init() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        particles = [];
+
+        textElements.forEach(el => {
+            const rect = el.getBoundingClientRect();
+            const style = window.getComputedStyle(el);
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCanvas.width = rect.width;
+            tempCanvas.height = rect.height;
+            tempCtx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+            tempCtx.textBaseline = 'top';
+            
+            // 실제 UI 텍스트 내용 그리기
+            const lines = el.innerHTML.split('<br>');
+            lines.forEach((line, i) => {
+                const cleanText = line.replace(/<[^>]*>/g, "").trim();
+                tempCtx.fillText(cleanText, 0, i * parseInt(style.lineHeight));
+            });
+
+            const data = tempCtx.getImageData(0, 0, rect.width, rect.height).data;
+            // 가독성을 위해 간격을 1.5로 촘촘하게 설정
+            for (let y = 0; y < rect.height; y += 1.5) {
+                for (let x = 0; x < rect.width; x += 1.5) {
+                    if (data[(y * rect.width + x) * 4 + 3] > 128) {
+                        particles.push(new Particle(rect.left + x, rect.top + y, '#1d1d1f', 1));
+                    }
+                }
+            }
+        });
+    }
 
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        particles.forEach(p => {
+        for (let p of particles) {
             p.update();
             p.draw();
-        });
+        }
         requestAnimationFrame(animate);
     }
 
-    // 폰트 로드 대기 후 실행
     document.fonts.ready.then(() => {
         init();
         animate();
@@ -186,6 +166,5 @@ function init() {
 
     window.addEventListener('resize', init);
 </script>
-
 </body>
 </html>
