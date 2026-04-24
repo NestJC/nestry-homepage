@@ -1,97 +1,139 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nestry</title>
-    <style>
-        /* 1. 기본 스타일 설정 */
-        :root {
-            --bg-color: #ffffff; /* 깔끔한 흰색 배경 */
-            --text-main: #1d1d1f; /* 깊은 먹색 */
-            --text-sub: #86868b; /* 차분한 회색 */
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
-            display: flex;
-            height: 100vh;
-            align-items: center;
-            justify-content: center;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .wrapper {
-            max-width: 500px;
-            width: 90%;
-            padding: 40px;
-        }
-
-        /* 2. 타이포그래피 */
-        .brand {
-            font-size: 14px;
-            font-weight: 600;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            margin-bottom: 24px;
-            color: var(--text-main);
-        }
-
-        .intro {
-            font-size: 24px;
-            font-weight: 400;
-            line-height: 1.6;
-            margin-bottom: 40px;
-            word-break: keep-all; /* 한글 단어 잘림 방지 */
-        }
-
-        .intro span {
-            color: var(--text-sub);
-        }
-
-        /* 3. 연락처 및 링크 */
-        .contact-link {
-            font-size: 15px;
-            color: var(--text-main);
-            text-decoration: none;
-            border-bottom: 1px solid #d2d2d7;
-            padding-bottom: 4px;
-            transition: all 0.3s ease;
-        }
-
-        .contact-link:hover {
-            color: var(--text-sub);
-            border-bottom-color: var(--text-sub);
-        }
-
-        /* 미세한 애니메이션: 페이지 로드 시 스르륵 나타남 */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .wrapper {
-            animation: fadeIn 1.2s ease-out;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nestry | nestjc</title>
+<style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: white; color: #333; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    canvas { display: block; }
+    #fallback { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; font-size: 1.2rem; font-weight: 300; pointer-events: none; opacity: 0; animation: fadeIn 2s forwards 1s; }
+    @keyframes fadeIn { to { opacity: 1; } }
+</style>
 </head>
 <body>
 
-    <div class="wrapper">
-        <div class="brand">Nestry</div>
+<div id="fallback">
+    <div style="font-size: 2rem; font-weight: 700;">NESTJC</div>
+    <div style="margin-top: 10px;">@ Nestry Space</div>
+    <div style="font-size: 0.9rem; margin-top: 20px;">nest@nestry.co.kr</div>
+</div>
+
+<canvas id="nestCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('nestCanvas');
+    const ctx = canvas.getContext('2d');
+    const fallback = document.getElementById('fallback');
+    
+    let w, h, particles;
+    
+    // 이 부분을 수정해서 보여주고 싶은 글씨를 바꾸세요.
+    const settings = {
+        text: 'NESTJC',
+        size: 150, 
+        color: '#333',
+        gap: 8, // 글씨 조각 간의 간격
+        repelRadius: 100, // 마우스가 밀어내는 반경
+        repelForce: 30, // 밀어내는 힘
+        returnForce: 0.05 // 다시 합쳐지는 속도
+    };
+
+    const mouse = { x: -1000, y: -1000, active: false };
+
+    window.addEventListener('resize', init);
+    window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; mouse.active = true; });
+    window.addEventListener('mouseout', () => { mouse.active = false; });
+
+    function init() {
+        fallback.style.display = 'none'; // 자바스크립트가 동작하면 fallback 삭제
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
         
-        <div class="intro">
-            <strong>Nest</strong>의 작업 공간입니다.<br>
-            <span>작고 유용한 도구와 게임을 고민하며,<br>
-            차분히 프로젝트를 준비하고 있습니다.</span>
-        </div>
+        ctx.font = `bold ${settings.size}px Helvetica`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // 1. 캔버스에 글씨를 그렸다가
+        ctx.fillStyle = settings.color;
+        ctx.fillText(settings.text, w / 2, h / 2);
+        
+        // 2. 그 글씨의 '픽셀 데이터'를 가져와서
+        const data = ctx.getImageData(0, 0, w, h).data;
+        ctx.clearRect(0, 0, w, h); // 캔버스 비우기
+        
+        // 3. 픽셀 데이터를 바탕으로 입자를 생성합니다.
+        particles = [];
+        for (let y = 0; y < h; y += settings.gap) {
+            for (let x = 0; x < w; x += settings.gap) {
+                const index = (y * w + x) * 4;
+                const alpha = data[index + 3];
+                
+                // 불투명한 부분(글씨가 그려진 부분)에 입자 생성
+                if (alpha > 128) { 
+                    particles.push(new Particle(x, y));
+                }
+            }
+        }
+    }
 
-        <a href="mailto:admin@nestry.co.kr" class="contact-link">admin@nestry.co.kr</a>
-    </div>
+    class Particle {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.baseX = x; // 원래 위치 기억
+            this.baseY = y;
+            this.size = 2; // 각 조각의 크기
+            this.vx = 0;
+            this.vy = 0;
+        }
+        update() {
+            // 마우스와의 거리 계산
+            const dx = mouse.x - this.x;
+            const dy = mouse.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            // 마우스가 몰려들면 깨져서 퍼지게 하는 힘
+            if (mouse.active && dist < settings.repelRadius) {
+                const force = (settings.repelRadius - dist) / settings.repelRadius;
+                const angle = Math.atan2(dy, dx);
+                this.vx -= Math.cos(angle) * force * settings.repelForce;
+                this.vy -= Math.sin(angle) * force * settings.repelForce;
+            }
+            
+            // 원래 위치로 합쳐지는 힘 (스프링 효과)
+            this.vx += (this.baseX - this.x) * settings.returnForce;
+            this.vy += (this.baseY - this.y) * settings.returnForce;
+            
+            // 마찰력 (속도를 점차 줄임)
+            this.vx *= 0.8;
+            this.vy *= 0.8;
+            
+            // 위치 업데이트
+            this.x += this.vx;
+            this.y += this.vy;
+        }
+        draw() {
+            ctx.fillStyle = settings.color;
+            ctx.beginPath();
+            // 사각형 조각으로 그리기 (성능상 유리)
+            ctx.fillRect(this.x, this.y, this.size, this.size); 
+        }
+    }
 
+    function animate() {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'; // 잔상 효과 (깨지는 느낌 강조)
+        ctx.fillRect(0, 0, w, h);
+        
+        for (let i = 0; i < particles.length; i++) {
+            particles[i].update();
+            particles[i].draw();
+        }
+        requestAnimationFrame(animate);
+    }
+
+    init();
+    animate();
+</script>
 </body>
 </html>
