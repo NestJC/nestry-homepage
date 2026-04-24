@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nestry</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <style>
-        /* 1. 사용자 제공 UI 스타일 (절대 보존) */
         :root {
             --bg-color: #ffffff;
             --text-main: #1d1d1f;
@@ -16,67 +16,47 @@
             margin: 0; padding: 0;
             background-color: var(--bg-color);
             color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+            /* 폰트 적용 순서 조정 */
+            font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
             display: flex; height: 100vh;
             align-items: center; justify-content: center;
             -webkit-font-smoothing: antialiased;
             overflow: hidden;
         }
 
-        .wrapper {
-            max-width: 500px; width: 90%;
-            padding: 40px;
-            animation: fadeIn 1.2s ease-out;
-        }
+        .wrapper { max-width: 500px; width: 90%; padding: 40px; animation: fadeIn 1.2s ease-out; }
 
-        .brand {
-            font-size: 14px; font-weight: 600;
-            letter-spacing: 0.1em; text-transform: uppercase;
-            margin-bottom: 24px; color: var(--text-main);
-        }
-
-        .intro {
-            font-size: 24px; font-weight: 400;
-            line-height: 1.6; margin-bottom: 40px;
-            word-break: keep-all;
-        }
-
+        .brand { font-size: 14px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 24px; }
+        .intro { font-size: 24px; font-weight: 400; line-height: 1.6; margin-bottom: 40px; word-break: keep-all; }
         .intro span { color: var(--text-sub); }
+
+        .char {
+            display: inline-block;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            will-change: transform;
+            white-space: pre;
+            pointer-events: none;
+        }
 
         .contact-link {
             font-size: 15px; color: var(--text-main);
             text-decoration: none; border-bottom: 1px solid #d2d2d7;
             padding-bottom: 4px; transition: all 0.3s ease;
         }
-
         .contact-link:hover { color: var(--text-sub); border-bottom-color: var(--text-sub); }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* 2. 인터랙티브 효과를 위한 추가 스타일 (UI 변질 없음) */
-        .char {
-            display: inline-block;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 자석 같은 복귀 효과 */
-            will-change: transform;
-            white-space: pre;
-            pointer-events: none; /* 텍스트 선택 방해 금지 */
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
     <div class="wrapper">
         <div class="brand scatter">Nestry</div>
-        
         <div class="intro scatter">
             <strong>Nest</strong>의 작업 공간입니다.<br>
             <span>작고 유용한 도구와 게임을 고민하며,<br>
             차분히 프로젝트를 준비하고 있습니다.</span>
         </div>
-
         <a href="mailto:admin@nestry.co.kr" class="contact-link">admin@nestry.co.kr</a>
     </div>
 
@@ -84,7 +64,7 @@
     const scatterElements = document.querySelectorAll('.scatter');
     const allChars = [];
 
-    // [중요] 기존 HTML 구조(strong, span 등)를 유지하며 글자만 쪼개는 로직
+    // [버그 수정] 태그 내부 텍스트까지 완벽하게 쪼개는 개선된 함수
     function injectSpans(element) {
         const nodes = Array.from(element.childNodes);
         element.innerHTML = ''; 
@@ -101,31 +81,40 @@
                 });
             } else if (node.nodeName === 'BR') {
                 element.appendChild(document.createElement('br'));
-            } else { // strong, span 등 태그 노드
-                const clone = node.cloneNode(false); // 태그 껍데기만 복제
+            } else { // strong, span 등 하위 태그 처리
+                const clone = node.cloneNode(false); 
                 element.appendChild(clone);
-                // 재귀적으로 내부 텍스트 쪼개기
-                const internalNodes = Array.from(node.childNodes);
-                node.innerHTML = ''; 
-                injectSpans(clone, node); 
+                // 재귀 호출 시 원본 노드의 자식들을 전달하여 유실 방지
+                const children = Array.from(node.childNodes);
+                children.forEach(child => {
+                    // 이 부분이 핵심: 클론 내부에 쪼개진 스팬들을 다시 삽입
+                    if (child.nodeType === 3) {
+                        [...child.textContent].forEach(char => {
+                            const span = document.createElement('span');
+                            span.innerText = char;
+                            span.classList.add('char');
+                            clone.appendChild(span);
+                            allChars.push(span);
+                        });
+                    } else {
+                        clone.appendChild(child.cloneNode(true));
+                    }
+                });
             }
         });
     }
 
-    // 텍스트 분해 실행
     scatterElements.forEach(el => injectSpans(el));
 
-    // 마우스 반응 로직
     window.addEventListener('mousemove', (e) => {
         const mouseX = e.clientX;
         const mouseY = e.clientY;
-        const radius = 90; // 효과 반경
+        const radius = 90;
 
         allChars.forEach(char => {
             const rect = char.getBoundingClientRect();
             const charX = rect.left + rect.width / 2;
             const charY = rect.top + rect.height / 2;
-
             const dx = mouseX - charX;
             const dy = mouseY - charY;
             const distance = Math.sqrt(dx * dx + dy * dy);
