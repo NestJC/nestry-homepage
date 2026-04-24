@@ -19,43 +19,38 @@
             display: flex; height: 100vh;
             align-items: center; justify-content: center;
             -webkit-font-smoothing: antialiased;
-            overflow: hidden; /* 스크롤 방지 */
-        }
-
-        /* 캔버스를 배경처럼 배치 */
-        #particle-canvas {
-            position: absolute; top: 0; left: 0;
-            z-index: 1; pointer-events: none;
+            overflow: hidden;
         }
 
         .wrapper {
             max-width: 600px; width: 90%;
-            padding: 40px; position: relative;
-            z-index: 2; /* UI 요소는 캔버스 위에 배치 */
-            pointer-events: none; /* 텍스트는 마우스 감지용으로만 사용 */
+            padding: 40px; text-align: left;
         }
 
         .brand {
             font-size: 14px; font-weight: 600;
             letter-spacing: 0.1em; text-transform: uppercase;
-            margin-bottom: 24px; color: var(--text-main);
-            opacity: 0; /* 입자로 대체됨 */
+            margin-bottom: 24px;
         }
 
         .intro {
-            font-size: 32px; /* 가독성을 위해 살짝 키움 */
-            font-weight: 700; line-height: 1.4;
-            margin-bottom: 40px; word-break: keep-all;
-            color: var(--text-main);
-            opacity: 0; /* 입자로 대체됨 */
+            font-size: 32px; font-weight: 700;
+            line-height: 1.4; margin-bottom: 40px;
+            word-break: keep-all;
+        }
+
+        /* 개별 글자 스타일 */
+        .char {
+            display: inline-block; /* 위치 이동을 위해 필수 */
+            transition: transform 0.1s ease-out; /* 부드러운 복귀 */
+            white-space: pre; /* 공백 유지 */
+            will-change: transform;
         }
 
         .contact-link {
             font-size: 15px; color: var(--text-main);
             text-decoration: none; border-bottom: 1px solid #d2d2d7;
             padding-bottom: 4px; transition: all 0.3s ease;
-            pointer-events: auto; /* 링크는 클릭 가능해야 함 */
-            opacity: 1 !important; /* 링크는 입자로 만들지 않음 */
         }
 
         .contact-link:hover { color: var(--text-sub); border-bottom-color: var(--text-sub); }
@@ -63,12 +58,10 @@
 </head>
 <body>
 
-    <canvas id="particle-canvas"></canvas>
-
     <div class="wrapper">
-        <div class="brand interactive-text">Nestry</div>
+        <div class="brand scatter">Nestry</div>
         
-        <div class="intro interactive-text">
+        <div class="intro scatter">
             Nest의 작업 공간입니다.<br>
             차분히 프로젝트를 준비하고 있습니다.
         </div>
@@ -77,94 +70,58 @@
     </div>
 
 <script>
-    const canvas = document.getElementById('particle-canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const textElements = document.querySelectorAll('.interactive-text');
-    
-    let particles = [];
-    const mouse = { x: -100, y: -100, radius: 60 }; // 마우스 반경 좁게 조정
+    const scatterElements = document.querySelectorAll('.scatter');
+    const chars = [];
 
-    window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
-
-    class Particle {
-        constructor(x, y, color, size) {
-            this.x = x; this.y = y;
-            this.baseX = x; this.baseY = y;
-            this.color = color;
-            this.size = size;
-            this.density = (Math.random() * 20) + 5;
-        }
-        draw() {
-            ctx.fillStyle = this.color;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        update() {
-            let dx = mouse.x - this.x;
-            let dy = mouse.y - this.y;
-            let distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance < mouse.radius) {
-                let force = (mouse.radius - distance) / mouse.radius;
-                this.x -= (dx / distance) * force * this.density;
-                this.y -= (dy / distance) * force * this.density;
-            } else {
-                this.x += (this.baseX - this.x) * 0.15; // 빠른 복구
-                this.y += (this.baseY - this.y) * 0.15;
-            }
-        }
-    }
-
-    function init() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        particles = [];
-
-        textElements.forEach(el => {
-            const rect = el.getBoundingClientRect();
-            const style = window.getComputedStyle(el);
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            tempCanvas.width = rect.width;
-            tempCanvas.height = rect.height;
-            tempCtx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-            tempCtx.textBaseline = 'top';
-            
-            // 실제 UI 텍스트 내용 그리기
-            const lines = el.innerHTML.split('<br>');
-            lines.forEach((line, i) => {
-                const cleanText = line.replace(/<[^>]*>/g, "").trim();
-                tempCtx.fillText(cleanText, 0, i * parseInt(style.lineHeight));
-            });
-
-            const data = tempCtx.getImageData(0, 0, rect.width, rect.height).data;
-            // 가독성을 위해 간격을 1.5로 촘촘하게 설정
-            for (let y = 0; y < rect.height; y += 1.5) {
-                for (let x = 0; x < rect.width; x += 1.5) {
-                    if (data[(y * rect.width + x) * 4 + 3] > 128) {
-                        particles.push(new Particle(rect.left + x, rect.top + y, '#1d1d1f', 1));
-                    }
-                }
-            }
+    // 1. 텍스트를 한 글자씩 쪼개기
+    scatterElements.forEach(el => {
+        const text = el.innerText;
+        el.innerHTML = '';
+        [...text].forEach(char => {
+            const span = document.createElement('span');
+            span.innerText = char;
+            span.classList.add('char');
+            el.appendChild(span);
+            chars.push(span);
         });
-    }
-
-    function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let p of particles) {
-            p.update();
-            p.draw();
-        }
-        requestAnimationFrame(animate);
-    }
-
-    document.fonts.ready.then(() => {
-        init();
-        animate();
     });
 
-    window.addEventListener('resize', init);
+    // 2. 마우스 위치 추적 및 글자 이동
+    window.addEventListener('mousemove', (e) => {
+        const mouseX = e.clientX;
+        const mouseY = e.clientY;
+
+        chars.forEach(char => {
+            const rect = char.getBoundingClientRect();
+            const charX = rect.left + rect.width / 2;
+            const charY = rect.top + rect.height / 2;
+
+            const dx = mouseX - charX;
+            const dy = mouseY - charY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            const radius = 100; // 영향 반경
+            if (distance < radius) {
+                const force = (radius - distance) / radius;
+                const moveX = (dx / distance) * force * 20 * -1; // 마우스 반대 방향으로 이동
+                const moveY = (dy / distance) * force * 20 * -1;
+                char.style.transform = `translate(${moveX}px, ${moveY}px)`;
+            } else {
+                char.style.transform = `translate(0, 0)`;
+            }
+        });
+    });
+
+    // 모바일 터치 대응 (선택 사항)
+    window.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent("mousemove", {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+        window.dispatchEvent(mouseEvent);
+    }, { passive: false });
 </script>
+
 </body>
 </html>
